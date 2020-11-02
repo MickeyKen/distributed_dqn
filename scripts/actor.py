@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
+import os
+import rospy
 import gym
 import random
 import numpy as np
@@ -13,6 +14,8 @@ from keras.models import Model
 from keras.layers import Conv2D, Flatten, Dense, Input, Lambda, concatenate
 from keras import backend as K
 import time
+
+from environment import Env1
 
 class Actor:
     def __init__(self,
@@ -62,6 +65,7 @@ class Actor:
 
         self.port = (int(number)*11) + 50
         self.ROS_MASTER_URI = "113" + str(self.port)
+        is_training = True
         # self.env = gym.make(args.env_name)
         self.env = Env1(is_training, self.ROS_MASTER_URI)
 
@@ -156,22 +160,22 @@ class Actor:
 
         return a, y, q, error
 
-
     def build_network(self):
-        l_input = Input(shape=(4,84,84))
-        conv2d = Conv2D(32,8,strides=(4,4),activation='relu', data_format="channels_first")(l_input)
-        conv2d = Conv2D(64,4,strides=(2,2),activation='relu', data_format="channels_first")(conv2d)
-        conv2d = Conv2D(64,3,strides=(1,1),activation='relu', data_format="channels_first")(conv2d)
-        fltn = Flatten()(conv2d)
-        v = Dense(512, activation='relu', name="dense_v1_"+str(self.num))(fltn)
-        v = Dense(1, name="dense_v2_"+str(self.num))(v)
-        adv = Dense(512, activation='relu', name="dense_adv1_"+str(self.num))(fltn)
-        adv = Dense(self.num_actions, name="dense_adv2_"+str(self.num))(adv)
+        l_input = Input(shape=(7,))
+
+        x_h = Dense(56, activation='relu', kernel_initializer='lecun_uniform')(l_input)
+
+        v = Dense(28, activation='relu', name="dense_v1_"+str(self.num), kernel_initializer='lecun_uniform')(x_h)
+        v = Dense(1, name="dense_v2_"+str(self.num), kernel_initializer='lecun_uniform')(v)
+        adv = Dense(28, activation='relu', name="dense_adv1_"+str(self.num), kernel_initializer='lecun_uniform')(x_h)
+        adv = Dense(self.num_actions, name="dense_adv2_"+str(self.num), kernel_initializer='lecun_uniform')(adv)
         y = concatenate([v,adv])
         l_output = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - tf.stop_gradient(K.mean(a[:,1:],keepdims=True)), output_shape=(self.num_actions,))(y)
         model = Model(input=l_input,output=l_output)
 
-        s = tf.placeholder(tf.float32, [None, self.state_length, self.frame_width, self.frame_height])
+        model.summary()
+
+        s = tf.placeholder(tf.float32, [None, self.state_length])
         q_values = model(s)
 
         return s, q_values, model
@@ -226,6 +230,7 @@ class Actor:
         for _ in range(self.num_episodes):
             terminal = False
             observation = self.env.reset()
+            last_action = 0
             # for _ in range(random.randint(1, self.no_op_steps)):
             #     last_observation = observation
             #     observation, _, _, _ = self.env.step(0)  # Do nothing
@@ -233,11 +238,11 @@ class Actor:
             state = observation
             start = time.time()
 
-            while not terminal:
+            for i in range(150):
                 last_observation = observation
                 action, q = self.get_action_and_q(state)
 
-                observation, reward, done, arrive, reach = self.env.step(action, last_action)
+                observation, reward, terminal, _, _ = self.env.step(action, last_action)
                 last_action = action
                 # reward = np.sign(reward)
                 # self.env.render(mode='rgb_array')
@@ -245,7 +250,7 @@ class Actor:
                 # next_state = np.append(state[1:, :, :], processed_observation, axis=0)
                 next_state = observation
 
-                self.buffer.append((state, action, reward, next_state, done, q))
+                self.buffer.append((state, action, reward, next_state, terminal, q))
                 self.R = round((self.R + reward * self.gamma_n) / self.gamma,3)
 
                 # n-step transition
@@ -320,9 +325,12 @@ class Actor:
                 if self.anealing and self.anealing_steps + self.no_anealing_steps > self.t >= self.no_anealing_steps:
                     self.epsilon -= self.epsilon_step
 
-                self.total_reward += reward_ori
+                self.total_reward += reward
                 self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
                 self.duration += 1
+
+                if terminal:
+                    break
 
             elapsed = time.time() - start
 

@@ -173,20 +173,19 @@ class Learner:
 
 
     def build_network(self):
-        l_input = Input(shape=(4,84,84))
-        conv2d = Conv2D(32,8,strides=(4,4),activation='relu', data_format="channels_first")(l_input)
-        conv2d = Conv2D(64,4,strides=(2,2),activation='relu', data_format="channels_first")(conv2d)
-        conv2d = Conv2D(64,3,strides=(1,1),activation='relu', data_format="channels_first")(conv2d)
-        fltn = Flatten()(conv2d)
-        v = Dense(512, activation='relu', name="dense_v1")(fltn)
-        v = Dense(1, name="dense_v2")(v)
-        adv = Dense(512, activation='relu', name="dense_adv1")(fltn)
-        adv = Dense(self.num_actions, name="dense_adv2")(adv)
+        l_input = Input(shape=(7,))
+
+        x_h = Dense(56, activation='relu', kernel_initializer='lecun_uniform')(l_input)
+
+        v = Dense(28, activation='relu', name="dense_v1", kernel_initializer='lecun_uniform')(x_h)
+        v = Dense(1, name="dense_v2", kernel_initializer='lecun_uniform')(v)
+        adv = Dense(28, activation='relu', name="dense_adv1", kernel_initializer='lecun_uniform')(x_h)
+        adv = Dense(self.num_actions, name="dense_adv2", kernel_initializer='lecun_uniform')(adv)
         y = concatenate([v,adv])
         l_output = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - tf.stop_gradient(K.mean(a[:,1:],keepdims=True)), output_shape=(self.num_actions,))(y)
         model = Model(input=l_input,output=l_output)
 
-        s = tf.placeholder(tf.float32, [None, self.state_length, self.frame_width, self.frame_height])
+        s = tf.placeholder(tf.float32, [None, self.state_length])
         q_values = model(s)
 
         return s, q_values, model

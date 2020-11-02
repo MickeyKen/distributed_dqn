@@ -10,12 +10,18 @@ import time
 import gym
 import random
 
+import rospy
+
 from actor import Actor
 from learner import Learner
 
 
 def actor_work(args, queues, num):
     # with tf.device('/cpu:0'):
+    port = (int(num)*11) + 50
+    ROS_MASTER_URI = "113" + str(port)
+    os.environ['ROS_MASTER_URI'] = "http://localhost:" + str(ROS_MASTER_URI) + '/'
+    rospy.init_node('pararell_agent_' + ROS_MASTER_URI)
     sess = tf.InteractiveSession()
     actor = Actor(args, queues, num, sess, param_copy_interval=2000, send_size=200)
     actor.run()
@@ -29,6 +35,8 @@ def leaner_work(args, queues):
 
 # Train Mode
 if __name__ == '__main__':
+    # rospy.init_node('apex_dqn_agent')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_actors', type=int, default=2, help='number of Actors')
     parser.add_argument('--env_name', type=str, default='Alien-v0', help='Environment of Atari2600 games')
@@ -41,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_episodes', type=int, default=10000, help='number of episodes each agent plays')
     parser.add_argument('--frame_width', type=int, default=84, help='width of input frames')
     parser.add_argument('--frame_height', type=int, default=84, help='height of input frames')
-    parser.add_argument('--state_length', type=int, default=4, help='number of input frames')
+    parser.add_argument('--state_length', type=int, default=7, help='number of input frames')
     parser.add_argument('--n_step', type=int, default=3, help='n step bootstrap target')
     parser.add_argument('--gamma', type=float, default=0.99, help='discount factor')
 
