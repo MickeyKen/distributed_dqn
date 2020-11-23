@@ -338,12 +338,15 @@ class Actor:
                 self.episode + 1, self.num, self.t, self.duration, self.epsilon,
                 self.total_reward, self.total_q_max / float(self.duration),
                 self.duration/elapsed)
+            param_text = str(self.episode + 1)+ "," +str(self.num)+ "," +str(self.t)+ "," +str(self.duration)+ "," +str(self.epsilon)+ "," +str(self.total_reward)+ "," +str(self.total_q_max / float(self.duration))+ "," +str(self.duration/elapsed)
 
             print(text)
 
 
             with open(self.env_name+'_output.txt','a') as f:
                 f.write(text+"\n")
+            with open('param_'+self.env_name+'_output.txt','a') as f:
+                f.write(param_text+"\n")
 
             self.total_reward = 0
             self.total_q_max = 0
