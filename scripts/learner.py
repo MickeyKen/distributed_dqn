@@ -334,8 +334,12 @@ class Learner:
                 text_l = 'AVERAGE LOSS: {0:.5F} / AVG_MAX_Q: {1:2.4F} / LEARN PER SECOND: {2:.1F} / NUM LEARN: {3:5d}'.format(
                     self.total_loss/self.print_interval, self.total_q_max/(self.print_interval*self.batch_size), self.print_interval/self.total_time, self.t)
                 print(text_l)
-                with open(self.env_name+'_output.txt','a') as f:
+                param_text_l = str(self.total_loss/self.print_interval)+ "," +str(self.total_q_max/(self.print_interval*self.batch_size))+ "," +str(self.print_interval/self.total_time, self.t)
+
+                with open(self.env_name+'_loss_output.txt','a') as f:
                     f.write(text_l+"\n")
+                with open('param_'+self.env_name+'_loss_output.txt','a') as f:
+                    f.write(param_text_l+"\n")
                 #print("Average Loss: ", self.total_loss/PRINT_LOSS_INTERVAL, " / Learn Per Second: ", PRINT_LOSS_INTERVAL/self.total_time, " / AVG_MAX_Q", self.total_q_max/(PRINT_LOSS_INTERVAL*BATCH_SIZE))
                 self.total_loss = 0
                 self.total_time = 0
