@@ -7,8 +7,11 @@ import random
 import numpy as np
 import tensorflow as tf
 from collections import deque
-from keras.models import Model
-from keras.layers import Conv2D, Flatten, Dense, Input, Lambda, concatenate
+from keras import Sequential, optimizers
+from keras.models import Model, load_model
+from keras.layers import Conv2D, Flatten, Dense, Input, Lambda, concatenate, Activation, LeakyReLU, Dropout
+from keras.regularizers import l2
+from keras.utils import plot_model
 from keras import backend as K
 import time
 from SumTree import SumTree
@@ -173,17 +176,23 @@ class Learner:
 
 
     def build_network(self):
-        l_input = Input(shape=(7,))
+        model = Sequential()
+        model.add(Dense(56, input_shape=(7,), kernel_initializer='lecun_uniform'))
+        model.add(Activation("relu"))
 
-        x_h = Dense(56, activation='relu', kernel_initializer='lecun_uniform')(l_input)
+        model.add(Dense(56, kernel_initializer='lecun_uniform'))
+        model.add(Activation("relu"))
 
-        v = Dense(28, activation='relu', name="dense_v1", kernel_initializer='lecun_uniform')(x_h)
-        v = Dense(1, name="dense_v2", kernel_initializer='lecun_uniform')(v)
-        adv = Dense(28, activation='relu', name="dense_adv1", kernel_initializer='lecun_uniform')(x_h)
-        adv = Dense(self.num_actions, name="dense_adv2", kernel_initializer='lecun_uniform')(adv)
-        y = concatenate([v,adv])
-        l_output = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - tf.stop_gradient(K.mean(a[:,1:],keepdims=True)), output_shape=(self.num_actions,))(y)
-        model = Model(input=l_input,output=l_output)
+        model.add(Dense(28, kernel_initializer='lecun_uniform'))
+        model.add(Activation("relu"))
+
+        model.add(Dense(self.num_actions, kernel_initializer='lecun_uniform'))
+        model.add(Activation("linear"))
+
+        optimizer = optimizers.RMSprop(lr=0.00025, rho=0.9, epsilon=1e-06)
+        model.compile(loss="mse", optimizer=optimizer)
+
+        model.summary()
 
         s = tf.placeholder(tf.float32, [None, self.state_length])
         q_values = model(s)
