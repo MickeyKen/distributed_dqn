@@ -9,4 +9,5 @@
     roslaunch ubiquitous_display_gazebo train_world_2.launch
 
 ### Execute
-    python apex_dqn.py --num_actors 2 --env_name UD-v0 --replay_memory_size 200000
+    roscd distributed_dqn/scripts/
+    python apex_dqn_agent.py --num_actors 2 --env_name UD-v1 --replay_memory_size 200000
