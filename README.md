@@ -11,3 +11,4 @@
 ### Execute
     roscd distributed_dqn/scripts/
     python apex_dqn_agent.py --num_actors 2 --env_name UD-v1 --replay_memory_size 200000
+    __[testing node]__ python apex_dqn_agent.py --num_actors 1 --env_name UD-v0 --train 0 --load 1 --replay_memory_size 200000

@@ -84,8 +84,10 @@ if __name__ == '__main__':
     # Test Mode
     else:
         from test_agent import Agent
-        env = gym.make(args.env_name)
-        env = gym.wrappers.Monitor(env, args.network_path, force=True)
+        from environment import Env1
+        rospy.init_node('apex_test_agent')
+        env = Env1(False, "11311")
+        # env = gym.wrappers.Monitor(env, args.network_path, force=True)
         sess = tf.InteractiveSession()
         agent = Agent(args, sess)
         t = 0
@@ -93,18 +95,16 @@ if __name__ == '__main__':
         for episode in range(10):
             terminal = False
             observation = env.reset()
-            for _ in range(random.randint(1, agent.no_op_steps)):
-                last_observation = observation
-                observation, _, _, _ = env.step(0)  # Do nothing
-            state = agent.get_initial_state(observation, last_observation)
+            last_action = 0
+
+            # state = agent.get_initial_state(observation, last_observation)
             while not terminal:
                 last_observation = observation
-                action = agent.get_action_at_test(state)
-                observation, reward, terminal, _ = env.step(action)
-                if args.test_gui:
-                    env.render()
-                processed_observation = agent.preprocess(observation, last_observation)
-                state =np.append(state[1:, :, :], processed_observation, axis=0)
+                action = agent.get_action_at_test(observation)
+                observation, reward, terminal, _, _ = env.step(action, last_action)
+                if reward == 150:
+                    terminal = True
+
                 total_reward += reward
                 t += 1
 
