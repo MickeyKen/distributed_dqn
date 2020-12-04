@@ -179,7 +179,7 @@ class Env1():
             reward = -200
             self.pub_cmd_vel.publish(Twist())
 
-        if reach:
+        if reach and arrive and round(self.v, 1) == 0.0:
             reward = 150
             done = True
 
