@@ -17,6 +17,8 @@ if __name__ == '__main__':
     eps = [[0] for j in range(ACTOR_NUM)]
     average_eps = [[0] for j in range(ACTOR_NUM)]
 
+    epsilons = [[0] for j in range(ACTOR_NUM)]
+
     flag = 0
 
     count = 0
@@ -39,10 +41,12 @@ if __name__ == '__main__':
             eps_num = int(s_line.split(',')[0])
             actor_num = int(s_line.split(',')[1])
             reward = int(s_line.split(',')[5])
+            epsilon = float(s_line.split(',')[4])
             # print eps_num,actor_num, reward
 
             rewards[actor_num].append(reward)
             eps[actor_num].append(eps_num)
+            epsilons[actor_num].append(epsilon)
 
             if eps_num % 100 == 0 and eps_num > 0:
                 average_rewards[actor_num].append(sum(rewards_sum[actor_num]) / len(rewards_sum[actor_num]))
@@ -52,8 +56,11 @@ if __name__ == '__main__':
                 rewards_sum[actor_num].append(reward)
 
         for i in range(ACTOR_NUM):
-            plt.plot(average_eps[i],average_rewards[i], color=cycle[i])
+            label = "epsilon = "+str(epsilons[0][i])
+            print label
+            plt.plot(average_eps[i],average_rewards[i], color=cycle[i], label=label)
 
+        plt.legend( loc='upper left', borderaxespad=1)
         plt.draw()
         fig.savefig("result_multi_reward.png")
         plt.pause(0)
