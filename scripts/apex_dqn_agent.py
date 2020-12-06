@@ -98,12 +98,14 @@ if __name__ == '__main__':
             last_action = 0
 
             # state = agent.get_initial_state(observation, last_observation)
-            while not terminal:
+            # while not terminal:
+            for i in range(150):
                 last_observation = observation
                 action = agent.get_action_at_test(observation)
                 observation, reward, terminal, _, _ = env.step(action, last_action)
-                if reward == 150:
+                if reward == 150 or terminal:
                     terminal = True
+                    break
 
                 total_reward += reward
                 t += 1
