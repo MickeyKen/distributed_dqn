@@ -111,7 +111,7 @@ class Learner:
         self.remote_memory = Memory(self.replay_memory_size)
 
 
-        self.num_actions = 8
+        self.num_actions = 7
 
         self.t = 0
         self.total_time = 0

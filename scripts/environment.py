@@ -7,6 +7,7 @@ from math import pi
 import random
 import quaternion
 import time
+import datetime
 
 from std_msgs.msg import Float64, Int32, Float64MultiArray
 from geometry_msgs.msg import Twist, Point, Pose, Vector3, Quaternion
@@ -58,6 +59,7 @@ class Env1():
         self.ud_x = 0.
         self.diff_distance = 0.
         self.diff_angle = 0.
+        self.command = 0
 
         self.ud_spawn = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
 
@@ -183,6 +185,10 @@ class Env1():
             reward = 150
             done = True
 
+        # print reach , arrive, round(self.v, 1), self.command
+        # dt_now = datetime.datetime.now()
+        # print (dt_now)
+
         return reward, arrive, reach, done
 
 
@@ -193,6 +199,7 @@ class Env1():
         except (rospy.ServiceException) as e:
             print ("/gazebo/unpause_physics service call failed")
 
+        self.command = action
         vel_cmd = Twist()
         if action == 0:
             self.pub_cmd_vel.publish(vel_cmd)
@@ -214,8 +221,8 @@ class Env1():
         elif action == 6:
             self.tilt_ang = self.constrain(self.tilt_ang - TILT_STEP, TILT_MIN_LIMIT, TILT_MAX_LIMIT)
             self.tilt_pub.publish(self.tilt_ang)
-        elif action == 7:
-            pass
+        # elif action == 7:
+        #     pass
         else:
             print ("Error action is from 0 to 6")
 
@@ -302,6 +309,8 @@ class Env1():
         self.pan_pub.publish(self.pan_ang)
         self.tilt_pub.publish(self.tilt_ang)
         self.pub_cmd_vel.publish(Twist())
+
+        self.command = 0
 
         rospy.wait_for_service('/gazebo/delete_model')
         try:

@@ -73,7 +73,7 @@ class Actor:
 
 
         self.num = number
-        self.num_actions = 8
+        self.num_actions = 7
 
         self.t = 0
         self.repeated_action = 0
@@ -319,8 +319,9 @@ class Actor:
                 state = next_state
 
                 self.t += 1
-
+                # print ("t count: ", self.t)
                 if self.t % self.param_copy_interval == 0:
+                    # print "----------- ininin -----------"
                     while self.param_queue.empty():
                         print('Actor {} is wainting for learner params coming'.format(self.num))
                         time.sleep(4)
@@ -344,7 +345,8 @@ class Actor:
                 self.episode + 1, self.num, self.t, self.duration, self.epsilon,
                 self.total_reward, self.total_q_max / float(self.duration),
                 self.duration/elapsed)
-            param_text = str(self.episode + 1)+ "," +str(self.num)+ "," +str(self.t)+ "," +str(self.duration)+ "," +str(self.epsilon)+ "," +str(self.total_reward)+ "," +str(self.total_q_max / float(self.duration))+ "," +str(self.duration/elapsed)
+            st = time.time()
+            param_text = str(self.episode + 1)+ "," +str(self.num)+ "," +str(self.t)+ "," +str(self.duration)+ "," +str(self.epsilon)+ "," +str(self.total_reward)+ "," +str(self.total_q_max / float(self.duration))+ "," +str(self.duration/elapsed)+ "," +str(st)
 
             print(text)
 
