@@ -32,7 +32,7 @@ class Actor:
 
                  epsilon=0.4,
                  alpha=7,
-                 anealing=False,
+                 anealing=True,
                  no_anealing_steps=20000,
                  anealing_steps=1000000,
                  initial_epsilon=1.0,
@@ -88,7 +88,7 @@ class Actor:
             self.epsilon = self.epsilon **(1+(self.num/(self.num_actors-1))*self.alpha) if self.num_actors != 1 else self.epsilon
         else:
             self.epsilon = initial_epsilon
-            self.epsilon_step = (initial_epsilon - final_epsilon)/ anealing_steps
+            # self.epsilon_step = (initial_epsilon - final_epsilon)/ anealing_steps
 
 
 
@@ -243,6 +243,9 @@ class Actor:
             # state = self.get_initial_state(observation, last_observation)
             state = observation
             start = time.time()
+            if self.anealing and self.epsilon > 0.05:
+                # self.epsilon -= self.epsilon_step
+                self.epsilon *= 0.9986
 
             for i in range(150):
                 last_observation = observation
@@ -328,9 +331,6 @@ class Actor:
                     learner_params = self.param_queue.get()
                     self.sess.run([self.obtain_q_parameters,self.obtain_target_parameters],
                                   feed_dict=self.create_feed_dict(learner_params))
-
-                if self.anealing and self.anealing_steps + self.no_anealing_steps > self.t >= self.no_anealing_steps:
-                    self.epsilon -= self.epsilon_step
 
                 self.total_reward += reward
                 self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))

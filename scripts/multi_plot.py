@@ -1,10 +1,10 @@
 #!/usr/bin/python
 import matplotlib.pyplot as plt
 
-path = 'param_UD-v6_output.txt'
+path = 'param_UD-v10_output.txt'
 isServiceCount = True
 
-ACTOR_NUM = 2
+ACTOR_NUM = 4
 AVERAGE_NUM = 100
 
 if __name__ == '__main__':
