@@ -32,7 +32,7 @@ class Actor:
 
                  epsilon=0.4,
                  alpha=7,
-                 anealing=True,
+                 anealing=False,
                  no_anealing_steps=20000,
                  anealing_steps=1000000,
                  initial_epsilon=1.0,
@@ -73,7 +73,7 @@ class Actor:
 
 
         self.num = number
-        self.num_actions = 7
+        self.num_actions = 8
 
         self.t = 0
         self.repeated_action = 0
@@ -251,7 +251,7 @@ class Actor:
                 last_observation = observation
                 action, q = self.get_action_and_q(state)
 
-                observation, reward, terminal, _, _ = self.env.step(action, last_action)
+                observation, reward, terminal, _, _ = self.env.step(action, last_action,i)
                 last_action = action
                 # reward = np.sign(reward)
                 # self.env.render(mode='rgb_array')
