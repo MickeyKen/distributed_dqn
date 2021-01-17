@@ -32,7 +32,6 @@ def leaner_work(args, queues):
     leaner = Learner(args, queues, sess, batch_size=126)
     leaner.run()
 
-
 # Train Mode
 if __name__ == '__main__':
     # rospy.init_node('apex_dqn_agent')
@@ -102,7 +101,7 @@ if __name__ == '__main__':
             for i in range(150):
                 last_observation = observation
                 action = agent.get_action_at_test(observation)
-                observation, reward, terminal, _, _ = env.step(action, last_action)
+                observation, reward, terminal, _, _ = env.step(action, last_action, i)
                 if reward == 150 or terminal:
                     terminal = True
                     break
