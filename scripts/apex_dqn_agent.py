@@ -32,12 +32,15 @@ def leaner_work(args, queues):
     leaner = Learner(args, queues, sess, batch_size=126)
     leaner.run()
 
+def plot():
+    pass
+
 # Train Mode
 if __name__ == '__main__':
     # rospy.init_node('apex_dqn_agent')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_actors', type=int, default=2, help='number of Actors')
+    parser.add_argument('--num_actors', type=int, default=4, help='number of Actors')
     parser.add_argument('--env_name', type=str, default='Alien-v0', help='Environment of Atari2600 games')
     parser.add_argument('--train', type=int, default=1, help='train mode or test mode')
     parser.add_argument('--test_gui', type=int, default=0, help='decide whether you use GUI or not in test mode')
@@ -48,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_episodes', type=int, default=10000, help='number of episodes each agent plays')
     parser.add_argument('--frame_width', type=int, default=84, help='width of input frames')
     parser.add_argument('--frame_height', type=int, default=84, help='height of input frames')
-    parser.add_argument('--state_length', type=int, default=7, help='number of input frames')
+    parser.add_argument('--state_length', type=int, default=9, help='number of input frames')
     parser.add_argument('--n_step', type=int, default=3, help='n step bootstrap target')
     parser.add_argument('--gamma', type=float, default=0.99, help='discount factor')
 

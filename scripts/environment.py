@@ -18,7 +18,7 @@ from gazebo_msgs.msg import ModelStates
 from gazebo_msgs.srv import SetModelState, SetModelStateRequest
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
-out_path = 'environment_output_test_0110_1.txt'
+out_path = 'environment_output_test_0118_1.txt'
 
 diagonal_dis = 6.68
 goal_model_dir = os.path.join(os.path.split(os.path.realpath(__file__))[0], '..'
@@ -28,7 +28,7 @@ PAN_LIMIT = math.radians(90)  #2.9670
 TILT_MIN_LIMIT = math.radians(90) - math.atan(2.5/0.998)
 TILT_MAX_LIMIT = math.radians(90) - math.atan(1.5/0.998)
 
-PAN_STEP = math.radians(15)
+PAN_STEP = math.radians(5)
 TILT_STEP = math.radians(3)
 
 HUMAN_XMAX = 2.8
@@ -243,7 +243,7 @@ class Env1():
 
         # print "diff_distance: ", diff_distance, ", diff_angle: ", diff_angle
 
-        return scan_range, diff_distance, yaw, diff_angle, diff_distance, done, arrive
+        return scan_range, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive
 
     def setReward(self, done, arrive, step):
 
@@ -347,7 +347,7 @@ class Env1():
         except (rospy.ServiceException) as e:
             print ("/gazebo/pause_physics service call failed")
 
-        state, rel_dis, yaw, diff_angle, diff_distance, done, arrive = self.getState(data)
+        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(data)
         state = [i / 25. for i in state]
 
         state.append(self.constrain(self.pan_ang / PAN_LIMIT, -1.0, 1.0))
@@ -356,6 +356,8 @@ class Env1():
 
         state.append(diff_angle / 180)
         state.append(self.constrain(diff_distance / diagonal_dis, -1.0, 1.0))
+        state.append(diff_hu_angle / 180)
+        state.append(self.constrain(diff_hu_distance / diagonal_dis, -1.0, 1.0))
         # print state
         # state = state + [yaw / 360, rel_theta / 360, diff_angle / 180]
         reward, arrive, reach, done = self.setReward(done, arrive,step)
@@ -385,7 +387,7 @@ class Env1():
             rxp = xp + (distance * math.sin(math.radians(ang)))
             ryp = yp - (distance * math.cos(math.radians(ang)))
             human_ud_distance = math.hypot(rxp, ryp)
-            if rxp < HUMAN_XMAX and rxp > HUMAN_XMIN and ryp < HUMAN_YMAX and ryp > HUMAN_YMIN - distance:
+            if rxp < HUMAN_XMAX and rxp > HUMAN_XMIN and ryp < HUMAN_YMAX and ryp > HUMAN_YMIN - distance and human_ud_distance > self.min_threshold_arrive:
                 # print human_ud_distance
                 q = quaternion.from_euler_angles(0,0,math.radians(ang))
                 rq.x = q.x
@@ -465,7 +467,7 @@ class Env1():
         except (rospy.ServiceException) as e:
             print ("/gazebo/pause_physics service call failed")
 
-        state, rel_dis, yaw, diff_angle, diff_distance, done, arrive = self.getState(data)
+        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(data)
         state = [i / 25. for i in state]
 
         state.append(0.0)
@@ -474,7 +476,8 @@ class Env1():
 
         state.append(diff_angle / 180)
         state.append(self.constrain(diff_distance / diagonal_dis, -1.0, 1.0))
-
+        state.append(diff_hu_angle / 180)
+        state.append(self.constrain(diff_hu_distance / diagonal_dis, -1.0, 1.0))
         # state = state + [yaw / 360, rel_theta / 360, diff_angle / 180]
 
         return np.asarray(state)
