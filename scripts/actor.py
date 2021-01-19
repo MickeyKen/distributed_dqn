@@ -31,7 +31,7 @@ class Actor:
                  no_op_steps=30,                # Maximum number of "do nothing" actions to be performed by the agent at the start of an episode
 
                  epsilon=0.4,
-                 alpha=7,
+                 alpha=5,
                  anealing=False,
                  no_anealing_steps=20000,
                  anealing_steps=1000000,
@@ -84,10 +84,8 @@ class Actor:
         self.duration = 0
         self.episode = 0
 
-        if not self.anealing:
-            self.epsilon = self.epsilon **(1+(self.num/(self.num_actors-1))*self.alpha) if self.num_actors != 1 else self.epsilon
-        else:
-            self.epsilon = initial_epsilon
+        self.epsilon = self.epsilon **(1+(self.num/(self.num_actors-1))*self.alpha)
+
             # self.epsilon_step = (initial_epsilon - final_epsilon)/ anealing_steps
 
 
@@ -164,13 +162,13 @@ class Actor:
 
     def build_network(self):
         model = Sequential()
-        model.add(Dense(56, input_shape=(7,), kernel_initializer='lecun_uniform'))
+        model.add(Dense(72, input_shape=(9,), kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(56, kernel_initializer='lecun_uniform'))
+        model.add(Dense(36, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(28, kernel_initializer='lecun_uniform'))
+        model.add(Dense(18, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
         model.add(Dense(self.num_actions, kernel_initializer='lecun_uniform'))
@@ -202,7 +200,7 @@ class Actor:
 
     def get_action_and_q(self, state):
         action = self.repeated_action
-        q = self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess)
+        q = self.q_values.eval(feed_dict={self.s: [np.float32(state)]}, session=self.sess)
         if self.t % self.action_interval == 0:
             if self.epsilon >= random.random():
                 action = random.randrange(self.num_actions)
@@ -219,7 +217,7 @@ class Actor:
             if random.random() <= 0.05:
                 action = random.randrange(self.num_actions)
             else:
-                action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}))
+                action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state)]}))
             self.repeated_action = action
 
         self.t += 1
@@ -302,7 +300,7 @@ class Actor:
                     #remote_memory.extend(send)
                     terminal_batch = np.array(terminal_batch) + 0
                     # shape = (BATCH_SIZE, num_actions)
-                    target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess)
+                    target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch))}, session=self.sess)
                     # DDQN
                     actions = np.argmax(qn_batch, axis=1)
                     target_q_values_batch = np.array([target_q_values_batch[i][action] for i, action in enumerate(actions)])
@@ -310,7 +308,7 @@ class Actor:
                     y_batch = reward_batch + (1 - terminal_batch) * self.gamma_n * target_q_values_batch
 
                     error_batch = self.error.eval(feed_dict={
-                        self.s: np.float32(np.array(state_batch) / 255.0),
+                        self.s: np.float32(np.array(state_batch)),
                         self.a: action_batch,
                         self.q: q_batch,
                         self.y: y_batch
@@ -333,7 +331,7 @@ class Actor:
                                   feed_dict=self.create_feed_dict(learner_params))
 
                 self.total_reward += reward
-                self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}, session=self.sess))
+                self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(state)]}, session=self.sess))
                 self.duration += 1
 
                 if terminal:

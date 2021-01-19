@@ -84,13 +84,13 @@ class Agent:
 
     def build_network(self):
         model = Sequential()
-        model.add(Dense(56, input_shape=(7,), kernel_initializer='lecun_uniform'))
+        model.add(Dense(72, input_shape=(9,), kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(56, kernel_initializer='lecun_uniform'))
+        model.add(Dense(36, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(28, kernel_initializer='lecun_uniform'))
+        model.add(Dense(18, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
         model.add(Dense(self.num_actions, kernel_initializer='lecun_uniform'))
@@ -126,9 +126,10 @@ class Agent:
             if random.random() <= self.test_epsilon:
                 action = random.randrange(self.num_actions)
             else:
-                action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}))
+                action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state)]}))
+                # print self.q_values.eval(feed_dict={self.s: [np.float32(state)]})
             self.repeated_action = action
 
         self.t += 1
 
-        return action
+        return action, self.q_values.eval(feed_dict={self.s: [np.float32(state)]})

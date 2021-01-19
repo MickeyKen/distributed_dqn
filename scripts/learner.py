@@ -177,13 +177,13 @@ class Learner:
 
     def build_network(self):
         model = Sequential()
-        model.add(Dense(56, input_shape=(7,), kernel_initializer='lecun_uniform'))
+        model.add(Dense(72, input_shape=(9,), kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(56, kernel_initializer='lecun_uniform'))
+        model.add(Dense(36, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
-        model.add(Dense(28, kernel_initializer='lecun_uniform'))
+        model.add(Dense(18, kernel_initializer='lecun_uniform'))
         model.add(Activation("relu"))
 
         model.add(Dense(self.num_actions, kernel_initializer='lecun_uniform'))
@@ -294,28 +294,28 @@ class Learner:
                 next_state_batch.append(data[3])
                 terminal_batch.append(data[4])
 
-                self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(data[0] / 255.0)]},session=self.sess))
+                self.total_q_max += np.max(self.q_values.eval(feed_dict={self.s: [np.float32(data[0])]},session=self.sess))
 
             # Convert True to 1, False to 0
             terminal_batch = np.array(terminal_batch) + 0
             # shape = (BATCH_SIZE, num_actions)
-            target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess)
+            target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch))}, session=self.sess)
             # DDQN
-            actions = np.argmax(self.q_values.eval(feed_dict={self.s: np.float32(np.array(next_state_batch) / 255.0)}, session=self.sess), axis=1)
+            actions = np.argmax(self.q_values.eval(feed_dict={self.s: np.float32(np.array(next_state_batch))}, session=self.sess), axis=1)
             target_q_values_batch = np.array([target_q_values_batch[i][action] for i, action in enumerate(actions)])
             # shape = (BATCH_SIZE,)
             y_batch = reward_batch + (1 - terminal_batch) * self.gamma_n * target_q_values_batch
 
 
             error_batch = self.error_abs.eval(feed_dict={
-                self.s: np.float32(np.array(state_batch) / 255.0),
+                self.s: np.float32(np.array(state_batch)),
                 self.a: action_batch,
                 self.y: y_batch
             }, session=self.sess)
 
 
             loss, _ = self.sess.run([self.loss, self.grad_update], feed_dict={
-                self.s: np.float32(np.array(state_batch) / 255.0),
+                self.s: np.float32(np.array(state_batch)),
                 self.a: action_batch,
                 self.y: y_batch
                 #self.w: w_batch
