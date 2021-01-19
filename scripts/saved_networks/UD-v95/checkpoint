@@ -1,0 +1,5 @@
+model_checkpoint_path: "UD-v95-1600000"
+all_model_checkpoint_paths: "UD-v95-1500000"
+all_model_checkpoint_paths: "UD-v95-1550000"
+all_model_checkpoint_paths: "UD-v95-1600000"
+all_model_checkpoint_paths: "UD-v95-1650000"
