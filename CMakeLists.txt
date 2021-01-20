@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  trajectory_msgs
   tf
 )
 
@@ -155,6 +156,9 @@ include_directories(
 
 add_executable(for_rec src/projector.cpp)
 target_link_libraries(for_rec ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_executable(experiment_projector src/experiment_projector.cpp)
+target_link_libraries(experiment_projector ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 #############
 ## Install ##
