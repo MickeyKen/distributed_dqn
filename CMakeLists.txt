@@ -160,6 +160,9 @@ target_link_libraries(for_rec ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_executable(experiment_projector src/experiment_projector.cpp)
 target_link_libraries(experiment_projector ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
+add_executable(mimic_target_human src/mimic_target_human.cpp)
+target_link_libraries(mimic_target_human ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
