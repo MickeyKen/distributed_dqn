@@ -13,17 +13,21 @@ from geometry_msgs.msg import Twist, Point, Pose, Vector3, Quaternion
 from sensor_msgs.msg import LaserScan, JointState
 from nav_msgs.msg import Odometry
 from std_srvs.srv import Empty
-from geometry_msgs.msg import PoseStamped, PointStamped, Pose
+from geometry_msgs.msg import PoseStamped, PointStamped, Pose, Point
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 out_path = 'environment_output_test_0110_1.txt'
+human_out_path = 'estimate_human_position_0124.txt'
+projector_out_path = 'estimate_projector_position_0124_5.txt'
 
 diagonal_dis = 6.68
 goal_model_dir = os.path.join(os.path.split(os.path.realpath(__file__))[0], '..'
                                 , 'models', 'person_standing', 'model.sdf')
 
-PAN_LIMIT = math.radians(90)  #2.9670
+PAN_OFFSET = -math.radians(90)
+PAN_LIMIT = math.radians(90)
+PAN_MAX_LIMIT = math.radians(180)
 TILT_MIN_LIMIT = math.radians(90) - math.atan(2.5/0.998)
 TILT_MAX_LIMIT = math.radians(90) - math.atan(1.5/0.998)
 
@@ -49,12 +53,12 @@ class Env1():
 
         self.sub_odom = rospy.Subscriber('odom', Odometry, self.getOdometry)
 
-        self.sub_target_human_pose = rospy.Subscriber('/filtering/scan/detect_leg_person', Pose, self.getTargetHumanPose)
+        self.sub_target_human_pose = rospy.Subscriber('/point/filtering/scan/detect_leg_person', Point, self.getTargetHumanPose)
 
         self.head_pub = rospy.Publisher('/dynamixel_workbench_head/joint_trajectory', JointTrajectory, queue_size=100)
 
-        self.image_pub = rospy.Publisher('/ubiquitous_display/image', Int32, queue_size=10)
-        self.view_pub = rospy.Publisher('/view', Float64MultiArray, queue_size=10)
+        # self.target_point_pub = rospy.Publisher('/target_human/point', Point, queue_size=100)
+
         self.past_distance = 0.
         self.past_distance_rate = 0.
         self.past_projector_distance = 0.
@@ -65,7 +69,9 @@ class Env1():
         self.ud_x = 0.
         self.diff_distance = 0.
         self.diff_angle = 0.
+        self.input_flag = False
 
+        rospy.set_param("projector/switch",0)
 
         if is_training:
             self.threshold_arrive = 0.2
@@ -76,22 +82,54 @@ class Env1():
             self.min_threshold_arrive = 1.5
             self.max_threshold_arrive = 2.5
 
+    # def publishTargetPoint(self, on_off):
+    #     point_msg = Point()
+    #     point_msg.x = self.projector_position.position.x - self.position.x
+    #     point_msg.y = self.projector_position.position.y - self.position.y
+    #     if on_off:
+    #         point_msg.z = 1.0
+    #     else:
+    #         point_msg.z = 0.0
+    #     self.target_point_pub.publish(point_msg)
+
+    def switchProjector(self, on_off):
+        if on_off:
+            rospy.set_param("projector/switch",1)
+            print on_off
+        else:
+            rospy.set_param("projector/switch",0)
+            print on_off
+
     def publishPantilt(self, control_pan_pos, control_tilt_pos):
         head_msg = JointTrajectory()
+        jtp_msg = JointTrajectoryPoint()
         head_msg.joint_names = [ "pan_joint", "tilt_joint"]
-        jtp_msg.positions = [control_pan_pos,control_tilt_pos]
+        jtp_msg.positions = [control_pan_pos - math.radians(90), control_tilt_pos]
         jtp_msg.velocities = [0.5,0.5]
         jtp_msg.time_from_start = rospy.Duration.from_sec(0.00000002)
 
         head_msg.points.append(jtp_msg)
-        head_pub.publish(head_msg)
+        self.head_pub.publish(head_msg)
 
     def getTargetHumanPose(self, msg):
         print msg
-        self.goal_position.position.x = msg.position.x
-        self.goal_position.position.y = msg.position.y
-        self.goal_projector_position.position.x = msg.position.x
-        self.goal_projector_position.position.y = msg.position.y - 2.5
+        xp = msg.x
+        yp = msg.y
+        if xp > HUMAN_XMAX:
+            self.goal_position.position.x = HUMAN_XMAX
+        else:
+            self.goal_position.position.x = xp
+        if yp > HUMAN_YMAX:
+            self.goal_position.position.y = HUMAN_YMAX
+        else:
+            self.goal_position.position.y = yp
+        self.goal_projector_position.position.x = self.goal_position.position.x
+        self.goal_projector_position.position.y = self.goal_position.position.y - 2.5
+
+        # if self.input_flag:
+        #     filehandle2 = open(human_out_path, 'a+')
+        #     filehandle2.write(str(self.goal_projector_position.position.x)+ ',' + str(self.goal_projector_position.position.y) +  ',' + str(self.goal_position.position.x) + ',' + str(self.goal_position.position.y) + ',' + str(self.v) + "\n")
+        #     filehandle2.close()
 
     def constrain(self, input, low, high):
         if input < low:
@@ -117,7 +155,7 @@ class Env1():
         _, _, yaw = euler_from_quaternion(orientation_list)
         self.yaw = 0
 
-    def getProjState(self):
+    def getProjState(self, step):
         reach = False
 
         radian = math.radians(self.yaw) + self.pan_ang + math.radians(90)
@@ -125,8 +163,11 @@ class Env1():
         self.projector_position.position.x = distance * math.cos(radian) + self.position.x
         self.projector_position.position.y = distance * math.sin(radian) + self.position.y
         diff = math.hypot(self.goal_projector_position.position.x - self.projector_position.position.x, self.goal_projector_position.position.y - self.projector_position.position.y)
-        # print ("now: ", self.projector_position.position.x, self.projector_position.position.y)
-        # print ("goal: ", self.goal_projector_position.position.x, self.goal_projector_position.position.y)
+
+        filehandle3 = open(projector_out_path, 'a+')
+        filehandle3.write(str(self.goal_projector_position.position.x)+ ',' + str(self.goal_projector_position.position.y) +  ',' + str(self.goal_position.position.x) + ',' + str(self.goal_position.position.y) + ',' + str(self.projector_position.position.x) + ',' + str(self.projector_position.position.y) + ',' +str(self.v) + ',' + str(step) + "\n")
+        filehandle3.close()
+        
         if diff <= self.threshold_arrive:
             # done = True
             reach = True
@@ -134,12 +175,14 @@ class Env1():
         # print ("projector x: ", round(self.projector_position.position.x,1), ",projector y: ", round(self.projector_position.position.y,1))
         return diff, reach
 
-    def getState(self, scan):
+    def getState(self, fscan, rscan):
         scan_range = []
         yaw = self.yaw
         min_range = 0.8
         done = False
         arrive = False
+        # print self.goal_projector_position.position.x
+        # print self.position.x
 
         rel_dis_x = round(self.goal_projector_position.position.x - self.position.x, 1)
         rel_dis_y = round(self.goal_projector_position.position.y - self.position.y, 1)
@@ -214,8 +257,9 @@ class Env1():
         else:
             diff_hu_angle = round(360 - diff_hu_angle, 2)
 
-        scan_range.append(scan.ranges[0])
-        scan_range.append(scan.ranges[540])
+        scan_range.append(fscan.ranges[540])
+        scan_range.append(rscan.ranges[540])
+        print scan_range
 
         if min_range > min(scan_range) > 0:
             done = True
@@ -231,10 +275,7 @@ class Env1():
 
     def setReward(self, done, arrive, step):
 
-        _, reach = self.getProjState()
-        # current_projector_distance, reach = self.getProjState()
-        # current_distance = math.hypot(self.goal_projector_position.position.x - self.position.x, self.goal_projector_position.position.y - self.position.y)
-
+        _, reach = self.getProjState(step)
         reward = -1
 
         if done:
@@ -258,24 +299,11 @@ class Env1():
                     filehandle = open(out_path, 'a+')
                     filehandle.write("arrive" + ',' + str(self.goal_projector_position.position.x)+ ',' + str(self.goal_projector_position.position.y) +  ',' + str(self.goal_position.position.x) + ',' + str(self.goal_position.position.y) + "\n")
                     filehandle.close()
-
-        #         else:
-        #             diff_pos = self.past_distance - current_distance
-        #             diff_projector_pos = self.past_projector_distance - current_projector_distance
-        #
-        #             # if current_distance > self.min_threshold_arrive:
-        #             r_c = 150.0 * abs(self.past_distance - current_distance)
-        #
-        #             r_p = 8.0 * abs(self.past_projector_distance - current_projector_distance)
-        #
-        #             if diff_pos < 0 or diff_projector_pos < 0:
-        #                 reward = -((r_c+0.1) * r_p)
-        #             else:
-        #                 reward = (r_c+0.1) * r_p
-        #
-        #
-        # self.past_distance = current_distance
-        # self.past_projector_distance = current_projector_distance
+                    self.pub_cmd_vel.publish(Twist())
+                    self.switchProjector(True)
+                    print ("Set ----- projector -------")
+                    rospy.sleep(10)
+                    self.switchProjector(False)
 
         return reward, arrive, reach, done
 
@@ -283,8 +311,7 @@ class Env1():
     def step(self, action, past_action, step):
 
         vel_cmd = Twist()
-        # if action == 0:
-        #     self.pub_cmd_vel.publish(vel_cmd)
+
         if action == 0:
             vel_cmd.linear.x = 0.2
             self.pub_cmd_vel.publish(vel_cmd)
@@ -295,16 +322,20 @@ class Env1():
             pass
         elif action == 3:
             self.pan_ang = self.constrain(self.pan_ang + PAN_STEP, -PAN_LIMIT, PAN_LIMIT)
-            self.pan_pub.publish(self.pan_ang)
+            # self.pan_pub.publish(self.pan_ang)
+            self.publishPantilt(self.pan_ang, self.tilt_ang)
         elif action == 4:
             self.pan_ang = self.constrain(self.pan_ang - PAN_STEP, -PAN_LIMIT, PAN_LIMIT)
-            self.pan_pub.publish(self.pan_ang)
+            # self.pan_pub.publish(self.pan_ang)
+            self.publishPantilt(self.pan_ang, self.tilt_ang)
         elif action == 5:
             self.tilt_ang = self.constrain(self.tilt_ang + TILT_STEP, TILT_MIN_LIMIT, TILT_MAX_LIMIT)
-            self.tilt_pub.publish(self.tilt_ang)
+            # self.tilt_pub.publish(self.tilt_ang)
+            self.publishPantilt(self.pan_ang, self.tilt_ang)
         elif action == 6:
             self.tilt_ang = self.constrain(self.tilt_ang - TILT_STEP, TILT_MIN_LIMIT, TILT_MAX_LIMIT)
-            self.tilt_pub.publish(self.tilt_ang)
+            # self.tilt_pub.publish(self.tilt_ang)
+            self.publishPantilt(self.pan_ang, self.tilt_ang)
         elif action == 7:
             self.pub_cmd_vel.publish(vel_cmd)
         else:
@@ -312,15 +343,21 @@ class Env1():
 
         time.sleep(0.2)
 
-        data = None
-        while data is None:
+        f_data = None
+        while f_data is None:
             try:
-                data = rospy.wait_for_message('/scan_filtered', LaserScan, timeout=5)
+                f_data = rospy.wait_for_message('/front_laser_scan', LaserScan, timeout=5)
             except:
                 pass
 
+        r_data = None
+        while r_data is None:
+            try:
+                r_data = rospy.wait_for_message('/rear_laser_scan', LaserScan, timeout=5)
+            except:
+                pass
 
-        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(data)
+        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(f_data, r_data)
         state = [i / 25. for i in state]
 
         state.append(self.constrain(self.pan_ang / PAN_LIMIT, -1.0, 1.0))
@@ -337,56 +374,37 @@ class Env1():
 
         return np.asarray(state), reward, done, reach, arrive
 
-    def cal_actor_pose(self, distance):
-        xp = 0.
-        yp = 0.
-        rxp = 0.
-        ryp = 0.
-        rq = Quaternion()
-        # xp = random.uniform(-2.8, 2.8)
-        # yp = random.uniform(3.0, 5.0)
-        # ang = 0
-        # rxp = xp + (distance * math.sin(math.radians(ang)))
-        # ryp = yp - (distance * math.cos(math.radians(ang)))
-        # q = quaternion.from_euler_angles(0,0,math.radians(ang))
-        # rq.x = q.x
-        # rq.y = q.y
-        # rq.z = q.z
-        # rq.w = q.w
-        while True:
-            xp = random.uniform(HUMAN_XMIN, HUMAN_XMAX)
-            yp = random.uniform(HUMAN_YMIN, HUMAN_YMAX)
-            ang = 0
-            rxp = xp + (distance * math.sin(math.radians(ang)))
-            ryp = yp - (distance * math.cos(math.radians(ang)))
-            human_ud_distance = math.hypot(rxp, ryp)
-            if rxp < HUMAN_XMAX and rxp > HUMAN_XMIN and ryp < HUMAN_YMAX and ryp > HUMAN_YMIN - distance and human_ud_distance > self.max_threshold_arrive:
-                # print human_ud_distance
-                q = quaternion.from_euler_angles(0,0,math.radians(ang))
-                rq.x = q.x
-                rq.y = q.y
-                rq.z = q.z
-                rq.w = q.w
-                break
-        return xp, yp, rxp, ryp, rq
-
     def reset(self):
+        self.input_flag = False
+
+        self.goal_position.position.x = 2.5
+        self.goal_position.position.y = 4.0
+        self.goal_projector_position.position.x = self.goal_position.position.x
+        self.goal_projector_position.position.y = self.goal_position.position.y-2.5
 
         self.pan_ang = 0.0
         self.tilt_ang = TILT_MIN_LIMIT
 
-        self.pan_pub.publish(self.pan_ang)
-        self.tilt_pub.publish(self.tilt_ang)
+        # self.pan_pub.publish(self.pan_ang)
+        # self.tilt_pub.publish(self.tilt_ang)
+        self.publishPantilt(-math.radians(90), self.tilt_ang)
         self.pub_cmd_vel.publish(Twist())
 
-        data = None
-        while data is None:
+        f_data = None
+        while f_data is None:
             try:
-                data = rospy.wait_for_message('/scan_filtered', LaserScan, timeout=5)
+                f_data = rospy.wait_for_message('/front_laser_scan', LaserScan, timeout=5)
             except:
                 pass
 
-        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(data)
+        r_data = None
+        while r_data is None:
+            try:
+                r_data = rospy.wait_for_message('/rear_laser_scan', LaserScan, timeout=5)
+            except:
+                pass
+
+        state, yaw, diff_angle, diff_distance, diff_hu_angle, diff_hu_distance, done, arrive = self.getState(f_data, r_data)
         state = [i / 25. for i in state]
 
         state.append(0.0)

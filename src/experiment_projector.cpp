@@ -16,22 +16,20 @@
 int data_base = 0;
 
 
-void Callback(const geometry_msgs::Point& msg)
+int main(int argc, char **argv)
 {
-  //std::cout << msg.data << std::endl;
-  float x_point = msg.x;
-  float y_point = msg.y;
+
+  ros::init(argc, argv, "experiment_projector");
+
   ros::NodeHandle n;
-
-  int exp_num = 0;
-  int fin_switch = 1;
-
+  int fin_switch = 0;
+  n.setParam("projector/switch", fin_switch);
 
   ///// decide image size in real world
-  float size = 800 / 2;
+  float size = 150;
 
   ///// get image and resize projectr size
-  std::string input_file_path = "/home/ud18/sample.png";
+  std::string input_file_path = "/home/ud18/experimen.jpg";
   ///std::string input_file_path = file_dir + std::to_string(ran) + ".png";
   cv::Mat source_img = cv::imread(input_file_path, cv::IMREAD_UNCHANGED);
   int ColumnOfNewImage = 1024;
@@ -64,7 +62,7 @@ void Callback(const geometry_msgs::Point& msg)
                                                     0.00000000 ,  0.00000000 ,  1.00000000);
 
   ///// projector center point 512.0 384.0
-  const cv::Mat uv_center = (cv::Mat_<float>(3,1) << 512.0, 384.0, 1.0);
+  const cv::Mat uv_center = (cv::Mat_<float>(3,1) << 495.0, 700.0, 1.0);
 
 
   ///// prepare roatation matrix for x,y,z
@@ -96,91 +94,95 @@ void Callback(const geometry_msgs::Point& msg)
   while (ros::ok()) {
 
     ///// switch
-    n.getParam("exp_miki_img/switch", fin_switch);
+    n.getParam("projector/switch", fin_switch);
+    // std::cout << "fin_switch:" << fin_switch << std::endl;
     if (fin_switch == 0) {
-      break;
+      warp_img = cv::Mat::zeros(768, 1024, CV_8UC3);
     }
+    else {
 
-    ///// get Rotation and Translation
-    tf::StampedTransform transform;
-    try {
-      listener.waitForTransform("/projector_optical_frame","/base_footprint", ros::Time(0), ros::Duration(3.0));
-      listener.lookupTransform("/projector_optical_frame","/base_footprint", ros::Time(0), transform);
 
+      ///// get Rotation and Translation
+      tf::StampedTransform transform;
+      try {
+        listener.waitForTransform("/projector_optical_frame","/base_footprint", ros::Time(0), ros::Duration(3.0));
+        listener.lookupTransform("/projector_optical_frame","/base_footprint", ros::Time(0), transform);
+
+      }
+      catch (tf::TransformException &ex) {
+        ROS_ERROR("%s", ex.what());
+        ros::Duration(1.0).sleep();
+        continue;
+      }
+
+      tf::Quaternion q(transform.getRotation().getX(), transform.getRotation().getY(), transform.getRotation().getZ(), transform.getRotation().getW());
+      tf::Matrix3x3 m(q);
+      double roll, pitch, yaw;
+      m.getRPY(roll, pitch, yaw);
+      // std::cout << "Roll: " << roll << ", Pitch: " << pitch << ", Yaw: " << yaw << std::endl;
+
+
+      ///// calcurate Rotation Matrix
+      // insert Rotation matrix for X
+      rot_x.at<float>(1, 1) = cos(roll);
+      rot_x.at<float>(1, 2) = -sin(roll);
+      rot_x.at<float>(2, 1) = sin(roll);
+      rot_x.at<float>(2, 2) = cos(roll);
+
+      //insert Ritation matrix for y
+      rot_y.at<float>(0, 0) = cos(pitch);
+      rot_y.at<float>(0, 2) = sin(pitch);
+      rot_y.at<float>(2, 0) = -sin(pitch);
+      rot_y.at<float>(2, 2) = cos(pitch);
+
+      //insert Rotation matrix for z
+      rot_z.at<float>(0, 0) = cos(yaw);
+      rot_z.at<float>(0, 1) = -sin(yaw);
+      rot_z.at<float>(1, 0) = sin(yaw);
+      rot_z.at<float>(1, 1) = cos(yaw);
+
+      Rotation = rot_z * rot_y * rot_x;
+      ///std::cout << "Rot pre:" << Rotation << std::endl;
+
+      Rotation.at<float>(0, 2) = transform.getOrigin().x()*1000;
+      Rotation.at<float>(1, 2) = transform.getOrigin().y()*1000;
+      Rotation.at<float>(2, 2) = transform.getOrigin().z()*1000;
+      ///std::cout << "Rot post:" << Rotation << std::endl;
+
+      ///// calcurate center x-y-z point in real world
+      calc = (Ap * Rotation).inv() * uv_center;
+
+      calc = calc / calc.at<float>(2,0);
+      ///std::cout << "cmoplete:" << calc << std::endl;
+
+      target.at<float>(0,0) = calc.at<float>(0,0) - size;
+      target.at<float>(0,1) = calc.at<float>(1,0) + size;
+      target.at<float>(0,2) = 1.>0;
+
+      target.at<float>(1,0) = calc.at<float>(0,0) + size;
+      target.at<float>(1,1) = calc.at<float>(1,0) + size;
+      target.at<float>(1,2) = 1.0;
+
+      target.at<float>(2,0) = calc.at<float>(0,0) + size;
+      target.at<float>(2,1) = calc.at<float>(1,0) - size;
+      target.at<float>(2,2) = 1.0;
+
+      target.at<float>(3,0) = calc.at<float>(0,0) - size;
+      target.at<float>(3,1) = calc.at<float>(1,0) - size;
+      target.at<float>(3,2) = 1.0;
+
+      for (int i = 0; i < 4; i++) {
+        calc =  Ap * Rotation * target.row(i).t();
+        dst_pt[i].x = calc.at<float>(0,0) / calc.at<float>(2,0);
+        dst_pt[i].y = calc.at<float>(1,0) / calc.at<float>(2,0);
+        // printf("x: %f , y: %f", dst_pt[i].x, dst_pt[i].y);
+        // std::cout << "g = "<< std::endl << " "  << Ap * Rotation * target.row(i).t() << std::endl << std::endl;
+      }
+      cv::Mat M = cv::getPerspectiveTransform(src_pt,dst_pt);
+      cv::warpPerspective( source_img, warp_img, M, source_img.size());
+      // std::cout << "g = "<< std::endl << " "  << M << std::endl << std::endl;
+      ///// set window fullscreen
     }
-    catch (tf::TransformException &ex) {
-      ROS_ERROR("%s", ex.what());
-      ros::Duration(1.0).sleep();
-      continue;
-    }
-
-    tf::Quaternion q(transform.getRotation().getX(), transform.getRotation().getY(), transform.getRotation().getZ(), transform.getRotation().getW());
-    tf::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-    // std::cout << "Roll: " << roll << ", Pitch: " << pitch << ", Yaw: " << yaw << std::endl;
-
-
-    ///// calcurate Rotation Matrix
-    // insert Rotation matrix for X
-    rot_x.at<float>(1, 1) = cos(roll);
-    rot_x.at<float>(1, 2) = -sin(roll);
-    rot_x.at<float>(2, 1) = sin(roll);
-    rot_x.at<float>(2, 2) = cos(roll);
-
-    //insert Ritation matrix for y
-    rot_y.at<float>(0, 0) = cos(pitch);
-    rot_y.at<float>(0, 2) = sin(pitch);
-    rot_y.at<float>(2, 0) = -sin(pitch);
-    rot_y.at<float>(2, 2) = cos(pitch);
-
-    //insert Rotation matrix for z
-    rot_z.at<float>(0, 0) = cos(yaw);
-    rot_z.at<float>(0, 1) = -sin(yaw);
-    rot_z.at<float>(1, 0) = sin(yaw);
-    rot_z.at<float>(1, 1) = cos(yaw);
-
-    Rotation = rot_z * rot_y * rot_x;
-    ///std::cout << "Rot pre:" << Rotation << std::endl;
-
-    Rotation.at<float>(0, 2) = transform.getOrigin().x()*1000;
-    Rotation.at<float>(1, 2) = transform.getOrigin().y()*1000;
-    Rotation.at<float>(2, 2) = transform.getOrigin().z()*1000;
-    ///std::cout << "Rot post:" << Rotation << std::endl;
-
-    ///// calcurate center x-y-z point in real world
-    calc = (Ap * Rotation).inv() * uv_center;
-
-    calc = calc / calc.at<float>(2,0);
-    ///std::cout << "cmoplete:" << calc << std::endl;
-
-    target.at<float>(0,0) = calc.at<float>(0,0) - size;
-    target.at<float>(0,1) = calc.at<float>(1,0) + size;
-    target.at<float>(0,2) = 1.>0;
-
-    target.at<float>(1,0) = calc.at<float>(0,0) + size;
-    target.at<float>(1,1) = calc.at<float>(1,0) + size;
-    target.at<float>(1,2) = 1.0;
-
-    target.at<float>(2,0) = calc.at<float>(0,0) + size;
-    target.at<float>(2,1) = calc.at<float>(1,0) - size;
-    target.at<float>(2,2) = 1.0;
-
-    target.at<float>(3,0) = calc.at<float>(0,0) - size;
-    target.at<float>(3,1) = calc.at<float>(1,0) - size;
-    target.at<float>(3,2) = 1.0;
-
-    for (int i = 0; i < 4; i++) {
-      calc =  Ap * Rotation * target.row(i).t();
-      dst_pt[i].x = calc.at<float>(0,0) / calc.at<float>(2,0);
-      dst_pt[i].y = calc.at<float>(1,0) / calc.at<float>(2,0);
-      // printf("x: %f , y: %f", dst_pt[i].x, dst_pt[i].y);
-      // std::cout << "g = "<< std::endl << " "  << Ap * Rotation * target.row(i).t() << std::endl << std::endl;
-    }
-    cv::Mat M = cv::getPerspectiveTransform(src_pt,dst_pt);
-    cv::warpPerspective( source_img, warp_img, M, source_img.size());
-    // std::cout << "g = "<< std::endl << " "  << M << std::endl << std::endl;
-    ///// set window fullscreen
     cv::namedWindow( "screen", CV_WINDOW_NORMAL );
     cv::setWindowProperty("screen",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
     cv::imshow("screen", warp_img);
@@ -191,25 +193,6 @@ void Callback(const geometry_msgs::Point& msg)
 
 
   cv::destroyAllWindows();
-
-
-
-}
-int main(int argc, char **argv)
-{
-
-  ros::init(argc, argv, "experiment_projector");
-
-  ros::NodeHandle n;
-
-  ros::Subscriber sub = n.subscribe("target_human/point", 1000, &Callback);
-
-  ros::Rate rate(20);
-
-  while(ros::ok()){
-    ros::spinOnce();
-    rate.sleep();
-    }
 
 
   return 0;

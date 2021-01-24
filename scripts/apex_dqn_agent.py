@@ -14,7 +14,7 @@ import rospy
 
 from actor import Actor
 from learner import Learner
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def actor_work(args, queues, num):
     # with tf.device('/cpu:0'):
@@ -35,21 +35,6 @@ def leaner_work(args, queues):
 def plot(q_value):
     labels = ["Move forward", "Move Backword", "No operation", "Rotate pan joint clockwise", "Rotate pan joint counterclockwise", "Rotate tilt joint clockwise", "Rotate tilt joint counterclockwise", "Stop"]
     qV = np.empty(0)
-    for i in range(len(q_value)):
-        # qV.append(qValues1[i])
-        qV = np.append(qV, q_value[i])
-
-    max_index = np.argmax(qV)
-    colors = ["lightgray"]*len(q_value)
-    colors[max_index] = "#e41a1c"
-
-    plt.clf()
-    # plt.bar(len(q_value), qV, tick_label = labels, width=0.5, color="lightgray")
-    plt.bar(range(8), qV, color=colors)
-    plt.xticks(rotation=45)
-    plt.title("Selected action: " + labels[max_index])
-    plt.draw()
-    plt.pause(1)
 # Train Mode
 if __name__ == '__main__':
     # rospy.init_node('apex_dqn_agent')
@@ -101,7 +86,7 @@ if __name__ == '__main__':
     # Test Mode
     else:
         from test_agent import Agent
-        from environment import Env1
+        from experiment_enrivonment import Env1
         rospy.init_node('apex_test_agent')
         env = Env1(False, "11311")
         # env = gym.wrappers.Monitor(env, args.network_path, force=True)
@@ -109,18 +94,19 @@ if __name__ == '__main__':
         agent = Agent(args, sess)
         t = 0
         total_reward = 0
-        for episode in range(10):
-            plt.clf()
+        for episode in range(1):
+            #plt.clf()
             terminal = False
             observation = env.reset()
             last_action = 0
+            rospy.sleep(5)
 
             # state = agent.get_initial_state(observation, last_observation)
             # while not terminal:
             for i in range(70):
                 last_observation = observation
                 action, q_value = agent.get_action_at_test(observation)
-                plot(q_value[0])
+                # plot(q_value[0])
                 observation, reward, terminal, _, _ = env.step(action, last_action, i)
                 if reward == 150 or terminal:
                     terminal = True

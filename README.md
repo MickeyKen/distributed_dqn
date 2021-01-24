@@ -40,7 +40,7 @@ LRFの起動
 #### 手順5
 人物検出ノードの起動
 ###### Termiinal 1
-    source catkin_ws/devel/setup.bash
+    source openvino_ws/devel/setup.bash
     roslaunch scan_image_ros open_camera_to_kmeans_node.launch
 
 ###### Termiinal 2

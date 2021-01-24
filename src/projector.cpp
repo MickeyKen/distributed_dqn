@@ -38,7 +38,7 @@ void Callback(const std_msgs::Int16& msg)
 
     }
     ///// get image and resize projectr size
-    std::string input_file_path = "/home/mikintu183/bird_catched.png";
+    std::string input_file_path = "/home/ud18/sample.png";
     ///std::string input_file_path = file_dir + std::to_string(ran) + ".png";
     cv::Mat source_img = cv::imread(input_file_path, cv::IMREAD_UNCHANGED);
     int ColumnOfNewImage = 1024;
@@ -148,12 +148,12 @@ void Callback(const std_msgs::Int16& msg)
       rot_z.at<float>(1, 1) = cos(yaw);
 
       Rotation = rot_z * rot_y * rot_x;
-      std::cout << "Rot pre:" << Rotation << std::endl;
+      // std::cout << "Rot pre:" << Rotation << std::endl;
 
       Rotation.at<float>(0, 2) = transform.getOrigin().x()*1000;
       Rotation.at<float>(1, 2) = transform.getOrigin().y()*1000;
       Rotation.at<float>(2, 2) = transform.getOrigin().z()*1000;
-      std::cout << "Rot post:" << Rotation << std::endl;
+      // std::cout << "Rot post:" << Rotation << std::endl;
 
       ///// calcurate center x-y-z point in real world
       calc = (Ap * Rotation).inv() * uv_center;
